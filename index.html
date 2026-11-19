@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f3864">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Estoque Semanal</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--tx:#1b1f27;--mut:#667085;--bd:#d9dee8;--pri:#1f3864;--in:#fff9db;
+--red:#c62828;--redbg:#fde8e8;--yel:#8a6100;--yelbg:#fff3cd;--grn:#2e7d32;--grnbg:#e3f4e5}
+@media(prefers-color-scheme:dark){:root{--bg:#10141b;--card:#1a202b;--tx:#e8ebf1;--mut:#9aa3b2;--bd:#2b3445;--pri:#5b8def;--in:#2a2813;
+--red:#ff8a80;--redbg:#3a1c1c;--yel:#ffd54f;--yelbg:#3a3015;--grn:#81c784;--grnbg:#17301b}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 Arial,Helvetica,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 10px}
+header h1{margin:0;font-size:17px}header small{opacity:.85}
+main{padding:12px 12px calc(90px + env(safe-area-inset-bottom,0px));max-width:760px;margin:0 auto}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border:0;background:none;color:var(--mut);padding:12px 4px;font:inherit;font-size:13px}
+nav button.on{color:var(--pri);font-weight:700;border-top:3px solid var(--pri);margin-top:-1px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin:0 0 12px}
+.gh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.row{padding:9px 0;border-top:1px solid var(--bd);display:flex;gap:10px;align-items:center;justify-content:space-between}
+.row:first-of-type{border-top:0}.row .l{flex:1;min-width:0}.row .n{font-weight:700}.row .s{color:var(--mut);font-size:12px}
+.badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;margin-left:6px;white-space:nowrap}
+.pedir{background:var(--redbg);color:var(--red)}.atencao{background:var(--yelbg);color:var(--yel)}.ok{background:var(--grnbg);color:var(--grn)}.contar{background:var(--bd);color:var(--mut)}
+.qty{font-weight:700;color:var(--red);white-space:nowrap;text-align:right}
+input,select{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%}
+input.in{background:var(--in);color:var(--tx)}
+input.q{width:78px;text-align:center}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.cnt{display:grid;grid-template-columns:1fr 84px 84px;gap:8px;align-items:center}
+button.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:9px 12px;font:inherit;font-weight:700}
+button.b.sec{background:none;color:var(--pri);border:1px solid var(--pri)}button.b.del{background:none;color:var(--red);border:1px solid var(--red)}
+button.b.sm{padding:6px 10px;font-size:13px}
+.mut{color:var(--mut)}.sum{display:flex;gap:8px;margin-bottom:12px}.sum div{flex:1;text-align:center;padding:10px;border-radius:10px;font-weight:700}
+label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+details summary{cursor:pointer;padding:8px 0;font-weight:700}
+#toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#222;color:#fff;padding:9px 14px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header><h1>Estoque Semanal <small id="sub"></small></h1></header>
+<main id="app"></main>
+<nav id="nav">
+<button data-t="pedir">Pedir</button><button data-t="contagem">Contagem</button><button data-t="itens">Itens</button><button data-t="backup">Backup</button>
+</nav>
+<div id="toast"></div>
+<script>
+const KEY='estoque-semanal-v1';
+const EX=[["Arroz","Mercearia","kg","Atacadão",10,30],["Feijão","Mercearia","kg","Atacadão",8,20],["Macarrão","Mercearia","kg","Atacadão",4,12],["Óleo de soja","Mercearia","L","Atacadão",6,18],["Açúcar","Mercearia","kg","Atacadão",4,10],["Sal","Mercearia","kg","Atacadão",2,5],["Frango","Proteínas","kg","Açougue Central",10,30],["Carne bovina","Proteínas","kg","Açougue Central",10,30],["Carne suína","Proteínas","kg","Açougue Central",5,15],["Linguiça","Proteínas","kg","Açougue Central",4,10],["Ovos","Proteínas","bandeja","Açougue Central",3,8],["Batata","Hortifrúti","kg","Hortifruti Silva",8,20],["Cebola","Hortifrúti","kg","Hortifruti Silva",5,12],["Tomate","Hortifrúti","kg","Hortifruti Silva",5,12],["Alface","Hortifrúti","un","Hortifruti Silva",6,15],["Queijo mussarela","Laticínios","kg","Laticínios Boa Terra",3,8],["Leite","Laticínios","L","Laticínios Boa Terra",6,18],["Refrigerante lata","Bebidas","cx","Distribuidora de Bebidas",3,10],["Água mineral","Bebidas","cx","Distribuidora de Bebidas",3,10],["Guardanapo","Descartáveis","pct","Descartáveis Center",5,15],["Embalagem marmita","Descartáveis","pct","Descartáveis Center",4,12],["Detergente","Limpeza","un","Descartáveis Center",3,8],["Saco de lixo","Limpeza","pct","Descartáveis Center",3,8]];
+let S=load(),tab='pedir';
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&d.items)return d}}catch(e){}return{items:[],weeks:[],quick:{},sel:null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Não foi possível salvar neste navegador')}}
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=v=>{if(v===''||v==null)return null;const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
+const fmt=n=>n==null?'–':(Math.round(n*10)/10).toString().replace('.',',');
+const uid=()=>Math.random().toString(36).slice(2,9);
+const br=d=>d?d.split('-').reverse().join('/'):'';
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),1800)}
+function idx(){if(!S.weeks.length)return -1;const i=S.weeks.findIndex(w=>w.date===S.sel);return i<0?S.weeks.length-1:i}
+function cnt(i,id){const w=S.weeks[i];return w&&w.counts[id]!=null?w.counts[id]:null}
+function cons(i,id){if(i<1)return null;const p=cnt(i-1,id),c=cnt(i,id);if(p==null||c==null)return null;const e=S.weeks[i].entries[id];return p+(e||0)-c}
+function avg(i,id){const v=[];for(let k=i;k>i-4&&k>=1;k--){const c=cons(k,id);if(c!=null)v.push(c)}return v.length?v.reduce((a,b)=>a+b,0)/v.length:null}
+function stock(i,id){const q=S.quick[id];return q!=null?q:cnt(i,id)}
+function status(st,mn){if(st==null)return'contar';if(st<=(mn||0))return'pedir';if(st<=(mn||0)*1.25)return'atencao';return'ok'}
+const LBL={pedir:'PEDIR',atencao:'ATENÇÃO',ok:'OK',contar:'CONTAR'};
+function rows(i){return S.items.map(it=>{const st=stock(i,it.id),s=status(st,it.min),a=avg(i,it.id);
+ return{it,st,s,a,days:(st!=null&&a>0)?st/(a/7):null,qty:(s==='pedir'||s==='atencao')?Math.max(0,(it.ideal||0)-st):null}})}
+
+function vPedir(){
+ const i=idx();
+ if(!S.items.length)return'<div class="card">Cadastre seus itens na aba <b>Itens</b> para começar.</div>';
+ if(i<0)return'<div class="card">Faça a primeira contagem na aba <b>Contagem</b>. Depois o que pedir aparece aqui.</div>';
+ const R=rows(i),need=R.filter(r=>r.s==='pedir'||r.s==='atencao'),ok=R.filter(r=>r.s==='ok'),no=R.filter(r=>r.s==='contar');
+ $('#sub').textContent='· contagem de '+br(S.weeks[i].date);
+ const line=r=>`<div class="row"><div class="l"><span class="n">${esc(r.it.name)}</span><span class="badge ${r.s}">${LBL[r.s]}</span>
+ <div class="s">Estoque ${fmt(r.st)} ${esc(r.it.unit)} · mín ${fmt(r.it.min)} · ideal ${fmt(r.it.ideal)}${r.days!=null?' · dura ~'+fmt(r.days)+' dias':''}</div></div>
+ ${r.qty!=null?`<div class="qty">Pedir<br>${fmt(r.qty)} ${esc(r.it.unit)}</div>`:''}
+ <input class="q in" inputmode="decimal" placeholder="rápida" value="${S.quick[r.it.id]!=null?fmt(S.quick[r.it.id]):''}" data-q="${r.it.id}" aria-label="Contagem rápida de ${esc(r.it.name)}"></div>`;
+ let h=`<div class="sum"><div class="pedir">${R.filter(r=>r.s==='pedir').length}<br><small>pedir</small></div><div class="atencao">${R.filter(r=>r.s==='atencao').length}<br><small>atenção</small></div><div class="ok">${ok.length}<br><small>ok</small></div></div>`;
+ const g={};need.forEach(r=>{const k=r.it.supplier||'Sem fornecedor';(g[k]=g[k]||[]).push(r)});
+ Object.keys(g).sort().forEach(k=>{h+=`<section class="card"><div class="gh"><b>${esc(k)}</b><button class="b sm" data-copy="${esc(k)}">Copiar pedido</button></div>${g[k].map(line).join('')}</section>`});
+ if(!need.length)h+='<div class="card">Nada para pedir agora. 🎉</div>';
+ if(ok.length)h+=`<details class="card"><summary>Em dia (${ok.length})</summary>${ok.map(line).join('')}</details>`;
+ if(no.length)h+=`<details class="card"><summary>Sem contagem (${no.length})</summary>${no.map(line).join('')}</details>`;
+ h+='<div class="card"><div class="mut" style="font-size:12px;margin-bottom:8px">Contagem rápida: digite o estoque atual de um item no meio da semana para atualizar o status dele. Apague os valores na sexta.</div><button class="b sec sm" data-act="clearq">Limpar contagens rápidas</button></div>';
+ return h}
+
+function vContagem(){
+ const i=idx();$('#sub').textContent='';
+ const today=new Date().toISOString().slice(0,10);
+ let h=`<div class="card"><div class="g2"><div><label>Semana (data da contagem)</label>${S.weeks.length?`<select id="selw">${S.weeks.map((w,k)=>`<option value="${w.date}" ${k===i?'selected':''}>${br(w.date)}</option>`).join('')}</select>`:'<div class="mut">Nenhuma ainda</div>'}</div>
+ <div><label>Nova contagem em</label><input type="date" id="newd" value="${today}"></div></div>
+ <div style="display:flex;gap:8px;margin-top:8px"><button class="b" data-act="neww">Criar / abrir semana</button>${i>=0?'<button class="b del" data-act="delw">Excluir semana</button>':''}</div></div>`;
+ if(!S.items.length)return h+'<div class="card">Cadastre os itens na aba <b>Itens</b>.</div>';
+ if(i<0)return h;
+ h+=`<div class="card"><input id="flt" placeholder="Buscar item..." style="margin-bottom:8px"><div class="cnt mut" style="font-size:12px"><span>Item</span><span>Contagem</span><span>Entrou</span></div>`;
+ S.items.forEach(it=>{const w=S.weeks[i];const c=w.counts[it.id],e=w.entries[it.id];
+  h+=`<div class="row" style="display:block" data-name="${esc(it.name.toLowerCase())}"><div class="cnt"><div><span class="n">${esc(it.name)}</span> <span class="mut">(${esc(it.unit)})</span></div>
+  <input class="in" inputmode="decimal" data-id="${it.id}" data-f="counts" value="${c!=null?fmt(c):''}" aria-label="Contagem de ${esc(it.name)}">
+  <input class="in" inputmode="decimal" data-id="${it.id}" data-f="entries" value="${e!=null?fmt(e):''}" aria-label="Entradas de ${esc(it.name)}"></div>
+  <div class="s" id="h-${it.id}">${hint(i,it.id)}</div></div>`});
+ return h+'</div>'}
+function hint(i,id){const p=i>0?cnt(i-1,id):null,c=cons(i,id);return(p!=null?'Sexta anterior: '+fmt(p):'Sem contagem anterior')+(c!=null?' · Consumo da semana: '+fmt(c)+(c<0?' ⚠ confira':''):'')}
+
+function vItens(){
+ $('#sub').textContent='';
+ let h=`<div class="card"><b>Novo item</b><div class="g2" style="margin-top:8px"><div><label>Nome</label><input id="n-name"></div><div><label>Categoria</label><input id="n-cat"></div>
+ <div><label>Unidade (kg, un, cx...)</label><input id="n-unit"></div><div><label>Fornecedor</label><input id="n-sup" list="sups"></div>
+ <div><label>Estoque mínimo</label><input id="n-min" inputmode="decimal"></div><div><label>Estoque ideal</label><input id="n-ideal" inputmode="decimal"></div></div>
+ <button class="b" style="margin-top:10px" data-act="additem">Adicionar</button>${S.items.length?'':' <button class="b sec" data-act="example">Carregar itens de exemplo</button>'}</div>
+ <datalist id="sups">${[...new Set(S.items.map(x=>x.supplier).filter(Boolean))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+ <div class="mut" style="font-size:12px;margin:0 0 8px">Mínimo = abaixo disso é hora de pedir. Ideal = quanto quer ter depois de repor (respeite o espaço do armário).</div>`;
+ S.items.forEach(it=>{h+=`<div class="card"><div class="g2"><div><label>Nome</label><input data-id="${it.id}" data-k="name" value="${esc(it.name)}"></div><div><label>Categoria</label><input data-id="${it.id}" data-k="cat" value="${esc(it.cat)}"></div>
+ <div><label>Unidade</label><input data-id="${it.id}" data-k="unit" value="${esc(it.unit)}"></div><div><label>Fornecedor</label><input data-id="${it.id}" data-k="supplier" list="sups" value="${esc(it.supplier)}"></div>
+ <div><label>Mínimo</label><input data-id="${it.id}" data-k="min" inputmode="decimal" value="${it.min!=null?fmt(it.min):''}"></div><div><label>Ideal</label><input data-id="${it.id}" data-k="ideal" inputmode="decimal" value="${it.ideal!=null?fmt(it.ideal):''}"></div></div>
+ <button class="b del sm" style="margin-top:8px" data-act="delitem" data-id="${it.id}">Excluir item</button></div>`});
+ return h}
+
+function vBackup(){
+ $('#sub').textContent='';
+ return`<div class="card"><b>Backup</b><p class="mut">Seus dados ficam só neste aparelho. Se limpar os dados do navegador ou trocar de celular, eles se perdem. Exporte um backup de vez em quando.</p>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b" data-act="export">Exportar backup</button><button class="b sec" data-act="import">Importar backup</button><button class="b del" data-act="reset">Apagar tudo</button></div>
+ <input type="file" id="file" accept="application/json" hidden></div>
+ <div class="card mut" style="font-size:12px">Como funciona: consumo da semana = contagem da sexta anterior + entradas − contagem de hoje. Status: PEDIR = no mínimo ou abaixo · ATENÇÃO = até 25% acima do mínimo · OK = acima.</div>`}
+
+function render(){
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+ $('#app').innerHTML=({pedir:vPedir,contagem:vContagem,itens:vItens,backup:vBackup})[tab]();
+}
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;render();window.scrollTo(0,0);return}
+ const c=e.target.closest('[data-copy]');if(c){copyOrder(c.dataset.copy);return}
+ const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act;
+ if(act==='clearq'){S.quick={};save();render()}
+ if(act==='neww'){const d=$('#newd').value;if(!d)return;if(!S.weeks.some(w=>w.date===d)){S.weeks.push({date:d,counts:{},entries:{}});S.weeks.sort((x,y)=>x.date.localeCompare(y.date))}S.sel=d;save();render()}
+ if(act==='delw'){const i=idx();if(i>=0&&confirm('Excluir a semana '+br(S.weeks[i].date)+'?')){S.weeks.splice(i,1);S.sel=null;save();render()}}
+ if(act==='additem'){const name=$('#n-name').value.trim();if(!name){toast('Digite o nome');return}
+  S.items.push({id:uid(),name,cat:$('#n-cat').value.trim(),unit:$('#n-unit').value.trim()||'un',supplier:$('#n-sup').value.trim(),min:num($('#n-min').value),ideal:num($('#n-ideal').value)});save();render();toast('Item adicionado')}
+ if(act==='example'){EX.forEach(x=>S.items.push({id:uid(),name:x[0],cat:x[1],unit:x[2],supplier:x[3],min:x[4],ideal:x[5]}));save();render()}
+ if(act==='delitem'){const it=S.items.find(x=>x.id===a.dataset.id);if(it&&confirm('Excluir '+it.name+'?')){S.items=S.items.filter(x=>x.id!==it.id);delete S.quick[it.id];save();render()}}
+ if(act==='export'){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const u=URL.createObjectURL(b);const l=document.createElement('a');l.href=u;l.download='estoque-backup-'+new Date().toISOString().slice(0,10)+'.json';l.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+ if(act==='import')$('#file').click();
+ if(act==='reset'&&confirm('Apagar todos os dados deste aparelho?')){S={items:[],weeks:[],quick:{},sel:null};save();render()}
+});
+document.addEventListener('input',e=>{
+ const el=e.target;
+ if(el.id==='flt'){const q=el.value.toLowerCase();document.querySelectorAll('[data-name]').forEach(r=>r.style.display=r.dataset.name.includes(q)?'':'none');return}
+ if(el.dataset.f){const i=idx(),w=S.weeks[i];w[el.dataset.f][el.dataset.id]=num(el.value);save();const h=$('#h-'+el.dataset.id);if(h)h.textContent=hint(i,el.dataset.id)}
+});
+document.addEventListener('change',e=>{
+ const el=e.target;
+ if(el.id==='selw'){S.sel=el.value;save();render();return}
+ if(el.dataset.q){const v=num(el.value);if(v==null)delete S.quick[el.dataset.q];else S.quick[el.dataset.q]=v;save();render();return}
+ if(el.dataset.k){const it=S.items.find(x=>x.id===el.dataset.id),k=el.dataset.k;it[k]=(k==='min'||k==='ideal')?num(el.value):el.value.trim();save();toast('Salvo');return}
+ if(el.id==='file'&&el.files[0]){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.items)||!Array.isArray(d.weeks))throw 0;S={items:d.items,weeks:d.weeks,quick:d.quick||{},sel:d.sel||null};save();tab='pedir';render();toast('Backup importado')}catch(x){alert('Arquivo de backup inválido')}};r.readAsText(el.files[0])}
+});
+function copyOrder(sup){
+ const i=idx();const L=rows(i).filter(r=>(r.s==='pedir'||r.s==='atencao')&&(r.it.supplier||'Sem fornecedor')===sup);
+ const txt='Pedido – '+sup+'\n'+L.map(r=>'- '+r.it.name+': '+fmt(r.qty)+' '+r.it.unit).join('\n');
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Pedido copiado'),()=>prompt('Copie o pedido:',txt));
+ else prompt('Copie o pedido:',txt)}
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+render();
+</script>
+</body>
+</html>
